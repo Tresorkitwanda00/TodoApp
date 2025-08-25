@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:todo_app/pages/login.dart';
+import 'package:todo_app/pages/todo_title.dart';
 import 'package:todo_app/services/service_firebase.dart';
 
 class HomePage extends StatefulWidget {
@@ -10,13 +13,43 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Stream<QuerySnapshot> getTodo() {
+    final user = FirebaseAuth.instance.currentUser;
+    return FirebaseFirestore.instance
+        .collection('todos')
+        .where('userId', isEqualTo: user!.uid)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getTodoCompleted() {
+    final user = FirebaseAuth.instance.currentUser;
+    return FirebaseFirestore.instance
+        .collection('todos')
+        .where('userId', isEqualTo: user!.uid) // Filtrer par utilisateur
+        .where('completed', isEqualTo: true)
+        .snapshots();
+  }
+
+  Future<void> updateTodo(String id, bool completed) async {
+    await FirebaseFirestore.instance.collection('todos').doc(id).update({
+      'completed': completed,
+    });
+  }
+
+  Future<void> deleteTodo(String id) async {
+    await FirebaseFirestore.instance.collection('todos').doc(id).delete();
+  }
+
+  final email = Auth().currentUser?.email;
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text('TODO APP'),
+          actions: [Text(email.toString())],
           leading: IconButton(
             onPressed: () async {
               Auth().logout();
@@ -25,7 +58,7 @@ class _HomePageState extends State<HomePage> {
                 MaterialPageRoute(builder: (context) => const Login()),
               );
             },
-            icon: Icon(Icons.logout),
+            icon: Icon(Icons.login_outlined),
           ),
         ),
         body: Column(
@@ -33,35 +66,64 @@ class _HomePageState extends State<HomePage> {
             TabBar(
               tabs: [
                 Tab(text: 'Taches'),
-                Tab(text: 'Encours'),
                 Tab(text: 'Achevées'),
               ],
             ),
             Expanded(
               child: TabBarView(
                 children: [
-                  ListView.builder(
-                    itemCount: 10,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        leading: Text('1'),
-                        title: Text('ma tache'),
-                        subtitle: Text('son status'),
-                        trailing: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            IconButton(
-                              onPressed: () {},
-                              icon: Icon(Icons.edit),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: getTodo(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return Center(child: Text("Aucun todo"));
+                      }
+
+                      final todos = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: todos.length,
+                        itemBuilder: (context, index) {
+                          final todo =
+                              todos[index].data() as Map<String, dynamic>;
+                          final id = todos[index].id;
+                          return ListTile(
+                            title: Text(todo['task']),
+                            trailing: Checkbox(
+                              value: todo['completed'],
+                              onChanged: (value) async {
+                                await updateTodo(id, !todo['completed']);
+                              },
                             ),
-                            Expanded(
-                              child: IconButton(
-                                onPressed: () {},
-                                icon: Icon(Icons.delete),
-                              ),
-                            ),
-                          ],
-                        ),
+                            onLongPress: () => deleteTodo(id),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: getTodoCompleted(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return Center(child: Text("Aucun todo"));
+                      }
+
+                      final todos = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: todos.length,
+                        itemBuilder: (context, index) {
+                          final todo =
+                              todos[index].data() as Map<String, dynamic>;
+                          final id = todos[index].id;
+                          return ListTile(title: Text(todo['task']));
+                        },
                       );
                     },
                   ),
@@ -72,7 +134,10 @@ class _HomePageState extends State<HomePage> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            Navigator.pushNamed(context, '/todo');
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => TodoTitle()),
+            );
           },
           child: Icon(Icons.add),
         ),

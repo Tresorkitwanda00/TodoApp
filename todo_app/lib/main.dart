@@ -1,8 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:todo_app/firebase_options.dart';
-import 'package:todo_app/pages/home_page.dart';
-import 'package:todo_app/pages/login.dart';
 import 'package:todo_app/pages/redirection_page.dart';
 import 'package:todo_app/services/service_firebase.dart';
 import 'package:todo_app/pages/theme/theme.dart';

@@ -130,7 +130,12 @@ class _LoginState extends State<Login> {
                             // Redirection automatique gérée par RedirectionPage
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString())),
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                                showCloseIcon: true,
+                              ),
                             );
                           } finally {
                             setState(() => loading = false);

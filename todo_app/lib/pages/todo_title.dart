@@ -1,8 +1,8 @@
-import 'dart:convert';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:todo_app/models/tache.dart';
+import 'package:todo_app/services/service_firebase.dart';
 
 class TodoTitle extends StatefulWidget {
   const TodoTitle({super.key});
@@ -12,29 +12,26 @@ class TodoTitle extends StatefulWidget {
 }
 
 class _TodoTitleState extends State<TodoTitle> {
-  final _globalKey = GlobalKey<_TodoTitleState>();
-  final TextEditingController tache = TextEditingController();
-  List<Tache> taches = [];
-  Future<void> fetchdata() async {
-    final response = await http.get(Uri.parse(''));
-    if (response.statusCode == 201) {
-      List jsonData = json.decode(response.body);
-      setState(() {
-        taches = jsonData
-            .map((toElement) => Tache.fromJson(toElement))
-            .toList();
+  Future<void> addTodo(String task) async {
+    // creons la variable qui va recuperer l'user connecte
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('todos').add({
+        'task': task,
+        'completed': false,
+        'userId': user.uid,
       });
-    } else {
-      throw Exception('erreur de chargement');
     }
   }
 
+  final _globalKey = GlobalKey<FormState>();
+  final TextEditingController tache = TextEditingController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Container(
-          width: 200,
+          width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.grey[900],
             borderRadius: BorderRadius.circular(12),
@@ -55,7 +52,15 @@ class _TodoTitleState extends State<TodoTitle> {
               children: [
                 Padding(
                   padding: EdgeInsets.all(12),
-                  child: TextField(
+                  child: TextFormField(
+                    controller: tache,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return " le champ est obligatoire";
+                      } else {
+                        return null;
+                      }
+                    },
                     decoration: InputDecoration(
                       labelText: 'Tache',
                       labelStyle: TextStyle(
@@ -72,7 +77,23 @@ class _TodoTitleState extends State<TodoTitle> {
                 Padding(
                   padding: EdgeInsets.all(12),
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      if (_globalKey.currentState!.validate()) {
+                        try {
+                          await addTodo(tache.text);
+                          Navigator.of(context).pop();
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                              showCloseIcon: true,
+                              content: Text(e.toString()),
+                            ),
+                          );
+                        }
+                      }
+                    },
                     child: Text('Ajouter une tache'),
                   ),
                 ),
